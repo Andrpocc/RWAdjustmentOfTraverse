@@ -78,9 +78,9 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
             dir_angle_ik = directional_angles[i] + 180
         else:
             dir_angle_ik = directional_angles[i] - 180
-        kxk = (sin(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
-        kyk = -(cos(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
-        kxi = (sin(directional_angles[i + 1]) * (206265 / (horizontal_layings[1] * 100))) - (
+        kxk = -(sin(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
+        kyk = (cos(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
+        kxi = (sin(directional_angles[i + 1]) * (206265 / (horizontal_layings[1] * 100))) + (
                     sin(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
         kyi = -(cos(directional_angles[i + 1]) * (206265 / (horizontal_layings[1] * 100))) + (
                     cos(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
@@ -111,8 +111,8 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
         dir_angle_ik = directional_angles[-1] + 180
     else:
         dir_angle_ik = directional_angles[-1] - 180
-    kxk = (sin(dir_angle_ik) * (206265 / (horizontal_layings[-1] * 100)))
-    kyk = -(cos(dir_angle_ik) * (206265 / (horizontal_layings[-1] * 100)))
+    kxk = -(sin(dir_angle_ik) * (206265 / (horizontal_layings[-1] * 100)))
+    kyk = (cos(dir_angle_ik) * (206265 / (horizontal_layings[-1] * 100)))
     a_matrix_angles[-1][-2] = kxk
     a_matrix_angles[-1][-1] = kyk
     # Составление матрицы А для проложений
@@ -190,6 +190,11 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
     y_coordinates = np.array(y_coordinates)
     x_corrected = x_coordinates + v_x / 100
     y_corrected = y_coordinates + v_y / 100
+    table = pd.DataFrame()
+    table['x'] = v_x
+    table['y'] = v_y
+
+    print(table)
     return x_corrected, y_corrected
 
 

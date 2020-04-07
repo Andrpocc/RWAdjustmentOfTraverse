@@ -1,5 +1,5 @@
 import math
-from sympy import Segment, Point
+from sympy import Segment
 import numpy as np
 import pandas as pd
 

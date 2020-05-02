@@ -19,7 +19,6 @@ def ogz_points(xa, ya, xb, yb):
     """Обратная геодезическая задача"""
     delx = xb - xa
     dely = yb - ya
-    S = math.sqrt(delx ** 2 + dely ** 2)
     if dely == 0 and delx > 0:
         alf = 0
     elif dely == 0 and delx < 0:
@@ -38,10 +37,7 @@ def ogz_points(xa, ya, xb, yb):
             alf = 180 + rumb
         elif delx > 0 and dely < 0:
             alf = 360 - rumb
-    G = math.trunc(alf)
-    M = math.trunc((alf - G) * 60)
-    C = round(((alf - G) - M / 60) * 60 * 60)
-    return G, M, C, S
+    return alf
 
 
 def ogz_delta(dx, dy):
@@ -127,8 +123,12 @@ def adjustment_traverse(first_directional_angle: float, last_directional_angle: 
         theoretical_sum_of_angles = last_directional_angle - first_directional_angle + 180 * number_of_angles
     else:
         theoretical_sum_of_angles = first_directional_angle - last_directional_angle + 180 * number_of_angles
-    angular_residual = practical_sum_of_angles - theoretical_sum_of_angles
-    correction = -angular_residual / number_of_angles
+    if practical_sum_of_angles - theoretical_sum_of_angles > 360:
+        theoretical_sum_of_angles = theoretical_sum_of_angles + 360
+    elif practical_sum_of_angles - theoretical_sum_of_angles < 360:
+        theoretical_sum_of_angles = theoretical_sum_of_angles - 360
+    angular_discrepancy = practical_sum_of_angles - theoretical_sum_of_angles
+    correction = -angular_discrepancy / number_of_angles
     corrected_angles = angles_array + correction
     if left_angle:
         directional_angles = list()
@@ -145,7 +145,13 @@ def adjustment_traverse(first_directional_angle: float, last_directional_angle: 
         directional_angles = list()
         directional_angles.append(first_directional_angle - corrected_angles[0] + 180)
         for i in range(len(corrected_angles) - 2):
-            directional_angles.append(directional_angles[i] - corrected_angles[i + 1] + 180)
+            dir_angle = directional_angles[i] - corrected_angles[i + 1] + 180
+            if dir_angle > 360:
+                directional_angles.append(dir_angle - 360)
+            elif dir_angle < 0:
+                directional_angles.append(dir_angle + 360)
+            else:
+                directional_angles.append(dir_angle)
     directional_angles_array = np.array(directional_angles)
     delta_x_array = horizontal_layings_array * np.cos(np.radians(directional_angles_array))
     delta_y_array = horizontal_layings_array * np.sin(np.radians(directional_angles_array))
@@ -153,11 +159,13 @@ def adjustment_traverse(first_directional_angle: float, last_directional_angle: 
     theoretical_sum_of_delta_y = last_point[1] - first_point[1]
     practical_sum_of_delta_x = sum(delta_x_array)
     practical_sum_of_delta_y = sum(delta_y_array)
-    delta_x_residual = practical_sum_of_delta_x - theoretical_sum_of_delta_x
-    delta_y_residual = practical_sum_of_delta_y - theoretical_sum_of_delta_y
+    delta_x_discrepancy = practical_sum_of_delta_x - theoretical_sum_of_delta_x
+    delta_y_discrepancy = practical_sum_of_delta_y - theoretical_sum_of_delta_y
     sum_of_layings = sum(horizontal_layings)
-    correction_delta_x = -delta_x_residual * horizontal_layings_array / sum_of_layings
-    correction_delta_y = -delta_y_residual * horizontal_layings_array / sum_of_layings
+    correction_delta_x = -delta_x_discrepancy * horizontal_layings_array / sum_of_layings
+    correction_delta_y = -delta_y_discrepancy * horizontal_layings_array / sum_of_layings
+    print(correction_delta_x)
+    print(correction_delta_y)
     corrected_delta_x = np.round(delta_x_array + correction_delta_x, 3)
     corrected_delta_y = np.round(delta_y_array + correction_delta_y, 3)
     x_coordinates = list()

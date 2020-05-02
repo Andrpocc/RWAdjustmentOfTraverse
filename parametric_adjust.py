@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
+from random import normalvariate
 from geo_tasks import *
-from math import sqrt, sin, cos
+from math import sqrt, sin, cos, radians, degrees, atan2
+
 
 def parametric_adjustment(first_directional_angle: float, last_directional_angle: float, angles: list,
                           horizontal_layings: list, first_point: list, last_point: list, left_angle=True):
@@ -35,30 +37,46 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
     y_coordinates.append(round(first_point[1] + delta_y_array[0], 3))
     for i in range(len(delta_y_array) - 2):
         y_coordinates.append(y_coordinates[i] + delta_y_array[i + 1])
+
     # По полученным приближенным значениям кооодинат вычисляются теоретические углы и длины линий
     # Теоретические значения горизонтальных углов
     theoretical_angles = list()
-    theoretical_angles.append(directional_angles[0] - first_directional_angle + 180)
-    for i in range(len(angles_array) - 2):
-        angle = directional_angles[i + 1] - directional_angles[i] + 180
+    theoretical_angles.append(ogz_points(first_point[0], first_point[1], x_coordinates[0],
+                                         y_coordinates[0]) - first_directional_angle + 180 - 360)
+    theoretical_angles.append(
+        degrees(atan2(y_coordinates[1] - y_coordinates[0], x_coordinates[1] - x_coordinates[0])) - degrees(
+            atan2(first_point[1] - y_coordinates[0], first_point[0] - x_coordinates[0])) + 360)
+    for i in range(len(angles_array) - 4):
+        angle = degrees(
+            atan2(y_coordinates[i + 2] - y_coordinates[i + 1], x_coordinates[i + 2] - x_coordinates[i + 1])) - degrees(
+            atan2(y_coordinates[i] - y_coordinates[i + 1], x_coordinates[i] - x_coordinates[i + 1]))
         if angle < 0:
             theoretical_angles.append(angle + 360)
         elif angle > 360:
             theoretical_angles.append(angle - 360)
         else:
             theoretical_angles.append(angle)
-    theoretical_angles.append(last_directional_angle - directional_angles[-1] + 180)
+
+    theoretical_angles.append(
+        degrees(atan2(last_point[1] - y_coordinates[-1], last_point[0] - x_coordinates[-1])) - degrees(
+            atan2(y_coordinates[-2] - y_coordinates[-1], x_coordinates[-2] - x_coordinates[-1])) + 360)
+    theoretical_angles.append(last_directional_angle - ogz_points(x_coordinates[-1], y_coordinates[-1], last_point[0],
+                                                                  last_point[1]) + 180 - 360)
+    print(theoretical_angles)
+    print(angles)
     # Теоретические значения горизонтальных проложений
     theoretical_layings = list()
-    theoretical_layings.append(sqrt((x_coordinates[0] - first_point[0])**2 + (y_coordinates[0] - first_point[1])**2))
+    theoretical_layings.append(
+        sqrt((x_coordinates[0] - first_point[0]) ** 2 + (y_coordinates[0] - first_point[1]) ** 2))
     for i in range(len(horizontal_layings_array) - 2):
         theoretical_layings.append(
             sqrt((x_coordinates[i + 1] - x_coordinates[i]) ** 2 + (y_coordinates[i + 1] - y_coordinates[i]) ** 2))
-    theoretical_layings.append(sqrt((last_point[0] - x_coordinates[-1])**2 + (last_point[1] - y_coordinates[-1])**2))
+    theoretical_layings.append(
+        sqrt((last_point[0] - x_coordinates[-1]) ** 2 + (last_point[1] - y_coordinates[-1]) ** 2))
     # Составление матрицы свободных членов L
     v_angles = (np.array(theoretical_angles) - np.array(angles)) * 3600
     v_layings = (np.array(theoretical_layings) - np.array(horizontal_layings)) * 100
-    l_matrix = -np.concatenate((v_angles, v_layings))  # Поменял знак, так как перенос на другую сторону
+    l_matrix = np.concatenate((v_angles, v_layings))  # Поменял знак, так как перенос на другую сторону
     # Составлание матрицы коэффициентов А для углов
     a_matrix_angles = list()
     for i in range(len(v_angles)):
@@ -68,8 +86,8 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
         a_matrix_angles.append(row)
     # Коэффициенты для поправок в углы
     # Коэффиценты для первого угла
-    kxj = -(sin(directional_angles[0]) * (206265 / (horizontal_layings[0] * 100)))
-    kyj = (cos(directional_angles[0]) * (206265 / (horizontal_layings[0] * 100)))
+    kxj = -(sin(radians(directional_angles[0])) * (206265 / (horizontal_layings[0] * 100)))
+    kyj = (cos(radians(directional_angles[0])) * (206265 / (horizontal_layings[0] * 100)))
     a_matrix_angles[0][0] = kxj
     a_matrix_angles[0][1] = kyj
     # Теперь цикл для всех углов до последнего
@@ -78,14 +96,14 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
             dir_angle_ik = directional_angles[i] + 180
         else:
             dir_angle_ik = directional_angles[i] - 180
-        kxk = -(sin(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
-        kyk = (cos(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
-        kxi = (sin(directional_angles[i + 1]) * (206265 / (horizontal_layings[1] * 100))) + (
-                    sin(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
-        kyi = -(cos(directional_angles[i + 1]) * (206265 / (horizontal_layings[1] * 100))) + (
-                    cos(dir_angle_ik) * (206265 / (horizontal_layings[0] * 100)))
-        kxj = -(sin(directional_angles[i + 1]) * (206265 / (horizontal_layings[1] * 100)))
-        kyj = (cos(directional_angles[i + 1]) * (206265 / (horizontal_layings[1] * 100)))
+        kxk = (sin(radians(dir_angle_ik)) * (206265 / (horizontal_layings[i] * 100)))
+        kyk = -(cos(radians(dir_angle_ik)) * (206265 / (horizontal_layings[i] * 100)))
+        kxi = (sin(radians(directional_angles[i + 1])) * (206265 / (horizontal_layings[i+1] * 100))) - (
+                sin(radians(dir_angle_ik)) * (206265 / (horizontal_layings[0] * 100)))
+        kyi = -(cos(radians(directional_angles[i + 1])) * (206265 / (horizontal_layings[i+1] * 100))) + (
+                cos(radians(dir_angle_ik)) * (206265 / (horizontal_layings[0] * 100)))
+        kxj = -(sin(radians(directional_angles[i + 1])) * (206265 / (horizontal_layings[i+1] * 100)))
+        kyj = (cos(radians(directional_angles[i + 1])) * (206265 / (horizontal_layings[i+1] * 100)))
         # Заполение матрицы
         if i == 0:
             a_matrix_angles[1][0] = kxi
@@ -94,10 +112,10 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
             a_matrix_angles[1][3] = kyj
             point = 0  # Для перехода точек через две координаты
         elif i == (len(v_angles) - 3):
-            a_matrix_angles[i+ 1][point] = kxk
-            a_matrix_angles[i+ 1][point + 1] = kyk
-            a_matrix_angles[i+ 1][point + 2] = kxi
-            a_matrix_angles[i+ 1][point + 3] = kyi
+            a_matrix_angles[i + 1][point] = kxk
+            a_matrix_angles[i + 1][point + 1] = kyk
+            a_matrix_angles[i + 1][point + 2] = kxi
+            a_matrix_angles[i + 1][point + 3] = kyi
         else:
             a_matrix_angles[i + 1][point] = kxk
             a_matrix_angles[i + 1][point + 1] = kyk
@@ -111,8 +129,8 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
         dir_angle_ik = directional_angles[-1] + 180
     else:
         dir_angle_ik = directional_angles[-1] - 180
-    kxk = -(sin(dir_angle_ik) * (206265 / (horizontal_layings[-1] * 100)))
-    kyk = (cos(dir_angle_ik) * (206265 / (horizontal_layings[-1] * 100)))
+    kxk = (sin(radians(dir_angle_ik)) * (206265 / (horizontal_layings[-1] * 100)))
+    kyk = -(cos(radians(dir_angle_ik)) * (206265 / (horizontal_layings[-1] * 100)))
     a_matrix_angles[-1][-2] = kxk
     a_matrix_angles[-1][-1] = kyk
     # Составление матрицы А для проложений
@@ -124,16 +142,16 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
         a_matrix_layings.append(row)
     # Коэфициенты для поправок в стороны
     # Коэфициенты для первой стороны
-    kxj = (cos(directional_angles[0]))
-    kyj = (sin(directional_angles[0]))
+    kxj = (cos(radians(directional_angles[0])))
+    kyj = (sin(radians(directional_angles[0])))
     a_matrix_layings[0][0] = kxj
     a_matrix_layings[0][1] = kyj
     # Теперь цикл для всех сторон до последнего
     for i in range(len(v_layings) - 2):
-        kxi = -(cos(directional_angles[i + 1]))
-        kyi = -(sin(directional_angles[i + 1]))
-        kxj = cos(directional_angles[i + 1])
-        kyj = sin(directional_angles[i + 1])
+        kxi = -(cos(radians(directional_angles[i + 1])))
+        kyi = -(sin(radians(directional_angles[i + 1])))
+        kxj = cos(radians(directional_angles[i + 1]))
+        kyj = sin(radians(directional_angles[i + 1]))
         # Заполение матрицы
         if i == 0:
             point = 0  # Для перехода точек через две координаты
@@ -143,8 +161,8 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
         a_matrix_layings[i + 1][point + 3] = kyj
         point += 2
     # Коэффициенты последей стороны
-    kxi = -(cos(directional_angles[-1]))
-    kyi = -(sin(directional_angles[-1]))
+    kxi = -(cos(radians(directional_angles[-1])))
+    kyi = -(sin(radians(directional_angles[-1])))
     a_matrix_layings[-1][-2] = kxi
     a_matrix_layings[-1][-1] = kyi
     # Построение матрицы общей матрицы А из матрицы коэф углои и матрицы коэф сторон
@@ -163,22 +181,24 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
         p_matrix[i][i] = 1
     # Линейные веса
     for i in range(len(v_angles), len(l_matrix)):
-        p_matrix[i][i] = 10 ** 2 / 2
+        p_matrix[i][i] = 5 ** 2 / 0.2 ** 2
     p_matrix_array = np.array(p_matrix)
     # Составление матрицы нормальных уравнений RA
     a_matrix_tr_array = np.transpose(a_matrix_array)
     r_koeff = np.dot(a_matrix_tr_array, p_matrix_array)
     ra = np.dot(r_koeff, a_matrix_array)
-    rl = np.dot(r_koeff, l_matrix)
+    rl = -np.dot(r_koeff, l_matrix)
     # Решение матричноего уравнения поправки в координаты
     v_coordinates = np.linalg.solve(ra, rl)
     # Нахождение поправок в измерения
-    v_measurement = np.dot(a_matrix_array, v_coordinates) - l_matrix
+    v_measurement = np.dot(a_matrix_array, v_coordinates) + l_matrix
     # контроль
     control = np.dot(np.dot(a_matrix_tr_array, p_matrix_array), v_measurement)
+    pvv = np.dot(np.dot(np.transpose(v_measurement), p_matrix_array), v_measurement)
+    pvl = np.dot(np.dot(np.transpose(v_measurement), p_matrix_array), l_matrix)
     # Вычисление уравненных коодинат
     v_coordinates = list(v_coordinates)
-    v_x =list()
+    v_x = list()
     for i in range(0, len(v_coordinates), 2):
         v_x.append(v_coordinates[i])
     v_y = list()
@@ -191,22 +211,43 @@ def parametric_adjustment(first_directional_angle: float, last_directional_angle
     x_corrected = x_coordinates + v_x / 100
     y_corrected = y_coordinates + v_y / 100
     table = pd.DataFrame()
-    table['x'] = v_x
-    table['y'] = v_y
-
-    print(table)
-    return x_corrected, y_corrected
-
-
+    table['x'] = x_corrected
+    table['y'] = y_corrected
+    # Оценка точности
+    mu = sqrt(pvv / 3)
+    mb = mu
+    ms = mu * sqrt(1 / (10 ** 2 / 2 ** 2))
+    k = np.linalg.inv(ra) * mu ** 2
+    q = list()
+    for i in range(len(v_coordinates)):
+        q.append(sqrt(k[i][i]))
+    mt = list()
+    for i in range(0, len(q), 2):
+        mt.append(sqrt(q[i] ** 2 + q[i + 1] ** 2))
+    print(v_coordinates)
+    print(l_matrix)
+    print(mt)
+    return l_matrix
 
 
 if __name__ == '__main__':
-    left_angles = [to_degrees(206, 15, 10), to_degrees(146, 2, 40), to_degrees(285, 26, 55),
-                   to_degrees(162, 44, 24), to_degrees(96, 6, 53), to_degrees(192, 0, 51), to_degrees(270, 12, 41),
-                   to_degrees(80, 57, 15), to_degrees(213, 6, 39)]
-    layings = [893.4, 514.874, 1146.725, 1664.18, 1460.28, 897.177, 835.992, 836.817]
-    first_point = [6065574.872, 4308709.395]
-    last_point = [6071450.856, 4307532.243]
-    parametric_adjustment(to_degrees(307, 7, 34), to_degrees(340, 1, 1), left_angles, layings, first_point,
-                          last_point, left_angle=True)
+    left_angles = [to_degrees(103, 44, 13), to_degrees(209, 43, 14), to_degrees(180, 14, 35),
+                   to_degrees(127, 38, 45), to_degrees(182, 13, 15), to_degrees(202, 29, 58), to_degrees(182, 50, 33),
+                   to_degrees(216, 47, 46), to_degrees(96, 10, 44)]
+    layings = [410.438, 435.831, 400.290, 474.049, 500.093, 373.122, 420.239, 605.389]
+    first_point = [6066110.881, 4310283.192]
+    last_point = [6069429.370, 4310505.674]
+    first_dirangle = to_degrees(71, 5, 8)
+    last_dirangle = to_degrees(312, 58, 27)
 
+    mistakes1 = list()
+    for j in range(9):
+        mistakes1.append(normalvariate(0, 5))
+    mistakes2 = list()
+    for j in range(8):
+        mistakes2.append(normalvariate(0, 2 + 2 * layings[j] / 1000))
+    with open('mistakes.txt', 'w') as file:
+        print(mistakes1, file=file)
+        print(mistakes2, file=file)
+    table = parametric_adjustment(first_dirangle, last_dirangle, left_angles, layings, first_point,
+                                  last_point, left_angle=True)

@@ -21,7 +21,7 @@ input_coordinates['y'] = input_y_coordinates
 x_matrix = pd.DataFrame()
 y_matrix = pd.DataFrame()
 
-for i in range(2):
+for i in range(10000):
     mistakes = list()
     for j in range(9):
         mistakes.append(normalvariate(0, 5) / 3600)
@@ -30,7 +30,7 @@ for i in range(2):
     for j in range(8):
         mistakes.append(normalvariate(0, 2 + 2 * input_layings[j] / 1000) / 1000)
     mistake_layings = np.array(input_layings) + np.array(mistakes)
-    corrected_coordinates = adjustment_traverse(first_dirangle, last_dirangle, mistake_angles, mistake_layings,
+    corrected_coordinates = parametric_adjustment(first_dirangle, last_dirangle, mistake_angles, mistake_layings,
                                                 input_first_point, input_last_point)
     delta_x = np.array(input_coordinates['x'] - corrected_coordinates['x'])
     delta_y = np.array(input_coordinates['y'] - corrected_coordinates['y'])
@@ -52,4 +52,6 @@ for i in range(7):
     mt = sqrt(mx_list[i] ** 2 + my_list[i] ** 2)
     mt_list.append(mt)
 
-print(mt_list)
+for i in mt_list:
+    print(i)
+
